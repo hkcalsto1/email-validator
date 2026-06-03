@@ -3,12 +3,13 @@ import Head from 'next/head';
 import Papa from 'papaparse';
 
 const STATUS = {
-  valid:         { label: 'Valid',          bg: 'bg-green-100 text-green-800 border-green-200' },
-  invalid:       { label: 'Invalid',        bg: 'bg-red-100 text-red-800 border-red-200' },
-  'no-mx':       { label: 'No MX',          bg: 'bg-red-100 text-red-800 border-red-200' },
-  disposable:    { label: 'Disposable',     bg: 'bg-orange-100 text-orange-800 border-orange-200' },
-  role:          { label: 'Role',           bg: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
-  unverifiable:  { label: 'Unverifiable',   bg: 'bg-gray-100 text-gray-600 border-gray-200' },
+  valid:           { label: 'Valid',          bg: 'bg-green-100 text-green-800 border-green-200' },
+  'likely-valid':  { label: 'Likely Valid',   bg: 'bg-blue-100 text-blue-800 border-blue-200' },
+  invalid:         { label: 'Invalid',        bg: 'bg-red-100 text-red-800 border-red-200' },
+  'no-mx':         { label: 'No MX',          bg: 'bg-red-100 text-red-800 border-red-200' },
+  disposable:      { label: 'Disposable',     bg: 'bg-orange-100 text-orange-800 border-orange-200' },
+  role:            { label: 'Role',           bg: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
+  unverifiable:    { label: 'Unverifiable',   bg: 'bg-gray-100 text-gray-600 border-gray-200' },
 };
 
 function Badge({ status }) {
@@ -251,6 +252,7 @@ export default function Home() {
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${bg}`}>{label}</span>
                     <p className="mt-1.5 text-xs text-gray-400">
                       {key === 'valid' && 'Deliverable mailbox confirmed'}
+                      {key === 'likely-valid' && 'Known provider (QQ, Gmail, Outlook…) — can\'t probe but domain is real'}
                       {key === 'invalid' && 'Bad format or mailbox not found'}
                       {key === 'no-mx' && 'Domain can\'t receive email'}
                       {key === 'disposable' && 'Throwaway domain'}
