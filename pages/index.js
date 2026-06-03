@@ -37,6 +37,7 @@ export default function Home() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [bulkError, setBulkError] = useState(null);
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
   const fileInputRef = useRef(null);
 
   // Single email check
@@ -100,23 +101,48 @@ export default function Home() {
     });
   };
 
-  // Bulk validation
+  // Bulk validation — chunked to avoid Vercel timeouts on large lists
+  const CHUNK_SIZE = 100;
+
   const handleBulkValidate = async () => {
     if (!parsedEmails.length) return;
     setBulkLoading(true);
     setBulkResults(null);
     setBulkError(null);
+    setProgress({ done: 0, total: parsedEmails.length });
+
+    const allResults = [];
     try {
-      const res = await fetch('/api/bulk-validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emails: parsedEmails }),
-      });
-      const data = await res.json();
-      if (data.error) { setBulkError(data.error); }
-      else { setBulkResults(data); }
-    } catch {
-      setBulkError('Request failed — try again');
+      for (let i = 0; i < parsedEmails.length; i += CHUNK_SIZE) {
+        const chunk = parsedEmails.slice(i, i + CHUNK_SIZE);
+        const res = await fetch('/api/bulk-validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emails: chunk }),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          setBulkError(`Server error (${res.status}) — try again`);
+          setBulkLoading(false);
+          return;
+        }
+        const data = await res.json();
+        if (data.error) {
+          setBulkError(data.error);
+          setBulkLoading(false);
+          return;
+        }
+        allResults.push(...data.results);
+        setProgress({ done: Math.min(i + CHUNK_SIZE, parsedEmails.length), total: parsedEmails.length });
+      }
+
+      const summary = {};
+      for (const r of allResults) {
+        summary[r.status] = (summary[r.status] || 0) + 1;
+      }
+      setBulkResults({ total: allResults.length, summary, results: allResults });
+    } catch (err) {
+      setBulkError('Request failed — check your connection and try again');
     }
     setBulkLoading(false);
   };
@@ -244,7 +270,7 @@ export default function Home() {
                 <div className="bg-white rounded-xl border border-gray-200 p-6">
                   <h2 className="text-base font-medium text-gray-900 mb-1">Upload your email list</h2>
                   <p className="text-sm text-gray-500 mb-5">
-                    Accepts any CSV — we auto-detect the email column. Max 5,000 rows per batch.
+                    Accepts any CSV — we auto-detect the email column. Up to 5,000 emails, processed in batches with a progress bar.
                   </p>
 
                   {/* Drop zone */}
@@ -321,15 +347,31 @@ export default function Home() {
                   )}
 
                   {csvFile && parsedEmails.length > 0 && (
-                    <button
-                      onClick={handleBulkValidate}
-                      disabled={bulkLoading}
-                      className="mt-5 w-full py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {bulkLoading
-                        ? `Validating ${parsedEmails.length} emails…`
-                        : `Validate ${parsedEmails.length} emails`}
-                    </button>
+                    <div className="mt-5">
+                      <button
+                        onClick={handleBulkValidate}
+                        disabled={bulkLoading}
+                        className="w-full py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {bulkLoading
+                          ? `Validating ${progress.done} / ${progress.total}…`
+                          : `Validate ${parsedEmails.length} email${parsedEmails.length !== 1 ? 's' : ''}`}
+                      </button>
+                      {bulkLoading && progress.total > 0 && (
+                        <div className="mt-3">
+                          <div className="flex justify-between text-xs text-gray-500 mb-1">
+                            <span>{Math.round((progress.done / progress.total) * 100)}% complete</span>
+                            <span>{progress.done} / {progress.total}</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-1.5">
+                            <div
+                              className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+                              style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
